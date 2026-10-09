@@ -21,6 +21,13 @@
     margin: 0;
     padding: 0;
     transition: background-color 0.25s ease, color 0.25s ease;
+    background-image: radial-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark body {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 }
 
@@ -38,4 +45,19 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.7);
+}
+
+/* Print Sheet Styling */
+@media print {
+  header, footer, nav, button, .lg\:col-span-7 {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .lg\:col-span-5 {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }

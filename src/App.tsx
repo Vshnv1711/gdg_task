@@ -8,9 +8,11 @@ import { PresetsSelector } from './components/PresetsSelector';
 import { QRPreview } from './components/QRPreview';
 import { ScannabilityBadge } from './components/ScannabilityBadge';
 import { RecentHistory } from './components/RecentHistory';
+import { QRScannerModal } from './components/QRScannerModal';
 import { buildQRPayload, validateQRData, getQRSummary } from './utils/qrPayload';
 import { evaluateScannability } from './utils/contrast';
 import { loadHistory, saveHistoryItem, deleteHistoryItem, clearHistory, getSavedTheme, setSavedTheme } from './utils/storage';
+import { ScanLine, ShieldCheck } from 'lucide-react';
 
 const DEFAULT_CONFIG: QRConfig = {
   size: 280,
@@ -19,20 +21,26 @@ const DEFAULT_CONFIG: QRConfig = {
   fgColor: '#0f172a',
   bgColor: '#ffffff',
   gradient: {
-    enabled: false,
+    enabled: true,
     type: 'linear',
     rotation: 45,
-    color1: '#2563eb',
-    color2: '#7c3aed',
+    color1: '#1a73e8',
+    color2: '#0d9488',
   },
   dotType: 'rounded',
   cornerSquareType: 'extra-rounded',
-  cornerSquareColor: '',
+  cornerSquareColor: '#1a73e8',
   cornerDotType: 'dot',
-  cornerDotColor: '',
+  cornerDotColor: '#0d9488',
   logoSize: 0.22,
   logoMargin: 6,
   hideBackgroundDots: true,
+  frame: {
+    style: 'none',
+    text: 'SCAN ME',
+    color: '#1a73e8',
+    textColor: '#ffffff',
+  },
 };
 
 const DEFAULT_QR_DATA: QRData = {
@@ -67,6 +75,24 @@ const DEFAULT_QR_DATA: QRData = {
     website: 'https://gdgsrm.com',
     address: 'SRM Institute of Science and Technology, Kattankulathur',
   },
+  upi: {
+    pa: 'gdgsrm@okhdfcbank',
+    pn: 'GDG on Campus SRM',
+    am: '199',
+    tn: 'Tech Recruitment Registration',
+  },
+  location: {
+    query: 'SRM Institute of Science and Technology, Kattankulathur, Chennai',
+    lat: '12.8230',
+    lng: '80.0454',
+  },
+  event: {
+    title: 'GDG SRM Developer Summit 2026',
+    location: 'TP Ganesan Auditorium, SRM IST',
+    startDateTime: '2026-10-15T10:00',
+    endDateTime: '2026-10-15T17:00',
+    description: 'Annual flagship technical festival & hands-on workshops.',
+  },
 };
 
 export default function App() {
@@ -81,6 +107,7 @@ export default function App() {
   const [config, setConfig] = useState<QRConfig>(DEFAULT_CONFIG);
   const [history, setHistory] = useState<HistoryItem[]>(() => loadHistory());
   const [decoderResult, setDecoderResult] = useState<{ isDecodable?: boolean; decodedContent?: string }>({});
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Sync theme to HTML class
   useEffect(() => {
@@ -91,6 +118,18 @@ export default function App() {
     }
     setSavedTheme(theme);
   }, [theme]);
+
+  // Global keyboard shortcuts (Ctrl+K to open Scanner)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsScannerOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -151,39 +190,51 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <Header theme={theme} onToggleTheme={toggleTheme} onReset={handleReset} />
+      <Header
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onReset={handleReset}
+        onOpenScanner={() => setIsScannerOpen(true)}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Banner introduction for GDG Campus recruitment task */}
-        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-200/60 dark:border-blue-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="mb-6 p-5 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-blue-200/60 dark:border-blue-900/40 backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
           <div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold tracking-wide uppercase">
+              <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black tracking-wider uppercase shadow-xs">
                 GDG on Campus SRM
               </span>
-              <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                Frontend Recruitment Task 1
+              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">
+                Technical Domain • Task 1
               </span>
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1 mb-0.5">
-              QR Code Generator & Designer Studio
+            <h2 className="text-base sm:text-xl font-black text-slate-900 dark:text-white mt-1.5 mb-0.5 tracking-tight">
+              QR Code Generator & Designer Studio Pro
             </h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 m-0">
-              Generate, style, and verify scannable QR codes 100% in-browser with zero backend dependencies.
+            <p className="text-xs text-slate-600 dark:text-slate-400 m-0 max-w-2xl">
+              Real-world marketing mockups (cafe stand, tech card, event badge), dual-tone gradients, WCAG contrast analyzer, camera scanner HUD, and zero backend required.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
-            <span className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-medium">
-              Client-side Only
-            </span>
-            <span className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-medium">
-              Real-time Scan Verified
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setIsScannerOpen(true)}
+              className="px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold hover:border-blue-500 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            >
+              <ScanLine className="w-3.5 h-3.5 text-blue-600" />
+              <span>Camera HUD</span>
+              <span className="text-[10px] font-mono opacity-60 ml-0.5">Ctrl+K</span>
+            </button>
+            <span className="px-3 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>100% In-Browser</span>
             </span>
           </div>
         </div>
 
-        {/* 2-Column Responsive Layout */}
+        {/* 2-Column Responsive Studio Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: Controls & Input Form (7 cols on desktop) */}
           <div className="lg:col-span-7 space-y-6">
@@ -235,6 +286,7 @@ export default function App() {
             <QRPreview
               payload={payload}
               config={config}
+              qrData={qrData}
               onUpdateScannability={(isDecodable, decodedContent) =>
                 setDecoderResult({ isDecodable, decodedContent })
               }
@@ -255,7 +307,7 @@ export default function App() {
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 py-6 mt-12 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
-            <span>Built for</span>
+            <span>Crafted for</span>
             <strong className="text-slate-700 dark:text-slate-300">Google Developer Groups on Campus SRM</strong>
             <span>• Technical Domain Recruitments</span>
           </div>
@@ -272,6 +324,12 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Scanner & Camera HUD Modal */}
+      <QRScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+      />
     </div>
   );
 }

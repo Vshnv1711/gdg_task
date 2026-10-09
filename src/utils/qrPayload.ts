@@ -13,6 +13,16 @@ export function escapeWifiString(str: string): string {
 }
 
 /**
+ * Formats ISO date string (YYYY-MM-DDTHH:mm) to iCal format (YYYYMMDDTHHmm00Z)
+ */
+function formatICalDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+/**
  * Builds standard payload string for the selected QR code data
  */
 export function buildQRPayload(data: QRData): string {
@@ -77,6 +87,47 @@ export function buildQRPayload(data: QRData): string {
       if (website.trim()) lines.push(`URL:${website.trim()}`);
       if (address.trim()) lines.push(`ADR:;;${address.trim()};;;;`);
       lines.push('END:VCARD');
+      return lines.join('\n');
+    }
+
+    case 'upi': {
+      const { pa, pn, am, tn } = data.upi;
+      const cleanPa = pa.trim();
+      if (!cleanPa) return '';
+      const params = new URLSearchParams({ pa: cleanPa });
+      if (pn.trim()) params.append('pn', pn.trim());
+      if (am.trim()) params.append('am', am.trim());
+      if (tn.trim()) params.append('tn', tn.trim());
+      params.append('cu', 'INR');
+      return `upi://pay?${params.toString()}`;
+    }
+
+    case 'location': {
+      const { query, lat, lng } = data.location;
+      if (lat.trim() && lng.trim()) {
+        return `geo:${lat.trim()},${lng.trim()}`;
+      }
+      if (query.trim()) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query.trim())}`;
+      }
+      return '';
+    }
+
+    case 'event': {
+      const { title, location, startDateTime, endDateTime, description } = data.event;
+      if (!title.trim()) return '';
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//GDG SRM//QR Craft//EN',
+        'BEGIN:VEVENT',
+        `SUMMARY:${title.trim()}`,
+      ];
+      if (location.trim()) lines.push(`LOCATION:${location.trim()}`);
+      if (startDateTime) lines.push(`DTSTART:${formatICalDate(startDateTime)}`);
+      if (endDateTime) lines.push(`DTEND:${formatICalDate(endDateTime)}`);
+      if (description.trim()) lines.push(`DESCRIPTION:${description.trim()}`);
+      lines.push('END:VEVENT', 'END:VCALENDAR');
       return lines.join('\n');
     }
 
@@ -173,6 +224,35 @@ export function validateQRData(data: QRData): { isValid: boolean; errors: Record
       }
       break;
     }
+
+    case 'upi': {
+      const { pa } = data.upi;
+      if (!pa.trim()) {
+        errors.pa = 'UPI ID / VPA is required (e.g. name@okhdfcbank)';
+      } else if (!/^[\w.-]+@[\w.-]+$/.test(pa.trim())) {
+        errors.pa = 'Invalid UPI ID format (must contain @)';
+      }
+      break;
+    }
+
+    case 'location': {
+      const { query, lat, lng } = data.location;
+      if (!query.trim() && (!lat.trim() || !lng.trim())) {
+        errors.location = 'Provide a location search query or GPS latitude & longitude';
+      }
+      break;
+    }
+
+    case 'event': {
+      const { title, startDateTime } = data.event;
+      if (!title.trim()) {
+        errors.title = 'Event title is required';
+      }
+      if (!startDateTime) {
+        errors.startDateTime = 'Start date & time is required';
+      }
+      break;
+    }
   }
 
   return {
@@ -202,6 +282,12 @@ export function getQRSummary(data: QRData): string {
       const name = [data.vcard.firstName, data.vcard.lastName].filter(Boolean).join(' ');
       return name ? `Contact: ${name}` : 'Empty Contact Card';
     }
+    case 'upi':
+      return data.upi.pa ? `UPI Pay: ${data.upi.pa}` : 'Empty UPI Payment';
+    case 'location':
+      return data.location.query ? `Map: ${data.location.query}` : 'Empty Location';
+    case 'event':
+      return data.event.title ? `Event: ${data.event.title}` : 'Empty Event';
     default:
       return 'QR Code';
   }

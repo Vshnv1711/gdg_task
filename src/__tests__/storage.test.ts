@@ -22,6 +22,7 @@ describe('Storage Utilities', () => {
     logoSize: 0.2,
     logoMargin: 6,
     hideBackgroundDots: true,
+    frame: { style: 'none', text: 'SCAN ME', color: '#000', textColor: '#fff' },
   };
 
   const sampleData: QRData = {
@@ -41,6 +42,24 @@ describe('Storage Utilities', () => {
       jobTitle: '',
       website: '',
       address: '',
+    },
+    upi: {
+      pa: 'merchant@okhdfcbank',
+      pn: 'GDG SRM',
+      am: '100',
+      tn: 'Payment',
+    },
+    location: {
+      query: 'SRM IST',
+      lat: '',
+      lng: '',
+    },
+    event: {
+      title: 'Dev Summit',
+      location: 'Campus',
+      startDateTime: '2026-10-15T10:00',
+      endDateTime: '2026-10-15T18:00',
+      description: 'Event',
     },
   };
 

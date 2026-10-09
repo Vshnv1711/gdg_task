@@ -1,9 +1,19 @@
-export type QRType = 'url' | 'text' | 'email' | 'phone' | 'wifi' | 'sms' | 'vcard';
+export type QRType = 'url' | 'text' | 'email' | 'phone' | 'wifi' | 'sms' | 'vcard' | 'upi' | 'location' | 'event';
 
 export type DotType = 'rounded' | 'dots' | 'classy' | 'classy-rounded' | 'square' | 'extra-rounded';
 export type CornerSquareType = 'dot' | 'square' | 'extra-rounded';
 export type CornerDotType = 'dot' | 'square';
 export type ErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
+
+export type FrameStyle = 'none' | 'polaroid' | 'banner-top' | 'banner-bottom' | 'badge-pill' | 'minimal-tag';
+export type MockupMode = 'canvas' | 'framed' | 'cafe-stand' | 'business-card' | 'event-badge' | 'phone';
+
+export interface FrameConfig {
+  style: FrameStyle;
+  text: string;
+  color: string;
+  textColor: string;
+}
 
 export interface GradientConfig {
   enabled: boolean;
@@ -29,6 +39,7 @@ export interface QRConfig {
   logoSize: number; // 0.1 to 0.4
   logoMargin: number;
   hideBackgroundDots: boolean;
+  frame: FrameConfig;
 }
 
 export interface WifiData {
@@ -64,6 +75,27 @@ export interface VCardData {
   address: string;
 }
 
+export interface UpiData {
+  pa: string; // VPA/UPI ID
+  pn: string; // Payee Name
+  am: string; // Amount (optional)
+  tn: string; // Transaction Note
+}
+
+export interface LocationData {
+  query: string;
+  lat: string;
+  lng: string;
+}
+
+export interface EventData {
+  title: string;
+  location: string;
+  startDateTime: string;
+  endDateTime: string;
+  description: string;
+}
+
 export interface QRData {
   type: QRType;
   url: string;
@@ -73,6 +105,9 @@ export interface QRData {
   wifi: WifiData;
   sms: SmsData;
   vcard: VCardData;
+  upi: UpiData;
+  location: LocationData;
+  event: EventData;
 }
 
 export interface QRPreset {

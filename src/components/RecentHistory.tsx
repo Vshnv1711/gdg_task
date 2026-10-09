@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FC } from 'react';
 import type { HistoryItem } from '../types';
 import { History, Trash2, RotateCcw, Copy, Check, Clock } from 'lucide-react';
+import { playTactileClick } from '../utils/sound';
 
 interface RecentHistoryProps {
   items: HistoryItem[];

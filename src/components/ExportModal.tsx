@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, type FC } from 'react';
 import type { QRConfig } from '../types';
-import { Download, Copy, Check, X } from 'lucide-react';
+import { Download, Copy, Check, X, Printer } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCodeStyling from 'qr-code-styling';
+import { playSuccessChime, playTactileClick } from '../utils/sound';
 
 interface ExportModalProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface ExportModalProps {
   defaultName: string;
 }
 
-export const ExportModal: React.FC<ExportModalProps> = ({
+export const ExportModal: FC<ExportModalProps> = ({
   isOpen,
   onClose,
   qrCodeInstance,
@@ -31,19 +32,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const triggerConfetti = () => {
     confetti({
-      particleCount: 60,
-      spread: 60,
-      origin: { y: 0.7 },
-      colors: ['#2563eb', '#7c3aed', '#059669', '#f59e0b'],
+      particleCount: 70,
+      spread: 70,
+      origin: { y: 0.65 },
+      colors: ['#2563eb', '#7c3aed', '#059669', '#f59e0b', '#ec4899'],
     });
   };
 
   const handleDownload = async () => {
     if (!qrCodeInstance) return;
     setIsExporting(true);
+    playTactileClick();
 
     try {
-      // Build a dedicated export instance with the user's selected resolution
       const exportInstance = new QRCodeStyling({
         width: scale,
         height: scale,
@@ -91,6 +92,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         extension: format,
       });
 
+      playSuccessChime();
       triggerConfetti();
       setTimeout(() => {
         setIsExporting(false);
@@ -105,6 +107,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleCopyToClipboard = async () => {
     if (!qrCodeInstance) return;
     try {
+      playTactileClick();
       const blob = await qrCodeInstance.getRawData('png');
       if (blob && navigator.clipboard && (window as any).ClipboardItem) {
         await navigator.clipboard.write([
@@ -113,6 +116,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           }),
         ]);
         setCopied(true);
+        playSuccessChime();
         triggerConfetti();
         setTimeout(() => setCopied(false), 2500);
       } else {
@@ -124,26 +128,31 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
+  const handlePrint = () => {
+    playTactileClick();
+    window.print();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+          className="absolute right-4 top-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 mb-4">
-          <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/60 dark:border-blue-800/60">
             <Download className="w-5 h-5" />
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">
-              Download QR Code
+              Export High-Res QR Code
             </h3>
-            <p className="text-xs text-slate-500 m-0">Choose file format and print resolution</p>
+            <p className="text-xs text-slate-500 m-0">Vector SVG, Ultra 4K PNG, or Print Sheet</p>
           </div>
         </div>
 
@@ -157,7 +166,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 key={fmt}
                 type="button"
-                onClick={() => setFormat(fmt)}
+                onClick={() => {
+                  playTactileClick();
+                  setFormat(fmt);
+                }}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold uppercase transition-all cursor-pointer ${
                   format === fmt
                     ? 'border-blue-600 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20'
@@ -180,12 +192,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {[
                 { val: 500, label: 'Standard', desc: '500×500' },
                 { val: 1000, label: 'HD 2x', desc: '1000×1000' },
-                { val: 2000, label: 'Print 4x', desc: '2000×2000' },
+                { val: 2000, label: 'Ultra 4x', desc: '2000×2000' },
               ].map((res) => (
                 <button
                   key={res.val}
                   type="button"
-                  onClick={() => setScale(res.val)}
+                  onClick={() => {
+                    playTactileClick();
+                    setScale(res.val);
+                  }}
                   className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
                     scale === res.val
                       ? 'border-blue-600 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20'
@@ -211,32 +226,45 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
               placeholder="my-qr-code"
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-sm bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             />
             <span className="text-xs font-mono text-slate-500">.{format}</span>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3">
+        <div className="space-y-2">
           <button
             type="button"
             onClick={handleDownload}
             disabled={isExporting}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-500/25 transition-all cursor-pointer disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-500/25 transition-all cursor-pointer disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             <span>{isExporting ? 'Generating...' : `Download .${format.toUpperCase()}`}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleCopyToClipboard}
-            title="Copy high-res image to clipboard"
-            className="px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleCopyToClipboard}
+              title="Copy image to clipboard"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              <span>{copied ? 'Copied!' : 'Copy PNG'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              title="Print flyer or sticker sheet directly"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Sheet</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

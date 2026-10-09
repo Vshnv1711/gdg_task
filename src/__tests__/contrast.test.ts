@@ -42,6 +42,7 @@ describe('Contrast and Scannability Evaluation', () => {
       logoSize: 0.2,
       logoMargin: 6,
       hideBackgroundDots: true,
+      frame: { style: 'none', text: 'SCAN ME', color: '#000', textColor: '#fff' },
     };
 
     const report = evaluateScannability(config, 50);
@@ -66,6 +67,7 @@ describe('Contrast and Scannability Evaluation', () => {
       logoSize: 0.25,
       logoMargin: 6,
       hideBackgroundDots: true,
+      frame: { style: 'none', text: 'SCAN ME', color: '#000', textColor: '#fff' },
     };
 
     const report = evaluateScannability(config, 50);

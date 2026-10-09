@@ -21,6 +21,24 @@ describe('QR Payload Utilities', () => {
       website: 'https://example.com',
       address: '123 Main St',
     },
+    upi: {
+      pa: 'merchant@okhdfcbank',
+      pn: 'GDG SRM',
+      am: '250',
+      tn: 'Event Pass',
+    },
+    location: {
+      query: 'SRM University Chennai',
+      lat: '12.8230',
+      lng: '80.0454',
+    },
+    event: {
+      title: 'GDG SRM Summit 2026',
+      location: 'Auditorium',
+      startDateTime: '2026-10-15T10:00',
+      endDateTime: '2026-10-15T17:00',
+      description: 'Dev Festival',
+    },
   };
 
   describe('buildQRPayload', () => {
@@ -95,6 +113,37 @@ describe('QR Payload Utilities', () => {
       expect(payload).toContain('TEL;TYPE=CELL:+1234567890');
       expect(payload).toContain('END:VCARD');
     });
+
+    it('generates standard UPI payment URL', () => {
+      const payload = buildQRPayload({ ...baseData, type: 'upi' });
+      expect(payload).toContain('upi://pay?');
+      expect(payload).toContain('pa=merchant%40okhdfcbank');
+      expect(payload).toContain('cu=INR');
+    });
+
+    it('generates Google Maps search URL and geo coordinates', () => {
+      const mapLink = buildQRPayload({
+        ...baseData,
+        type: 'location',
+        location: { query: 'SRM Campus', lat: '', lng: '' },
+      });
+      expect(mapLink).toContain('https://www.google.com/maps/search/?api=1&query=SRM+Campus');
+
+      const geo = buildQRPayload({
+        ...baseData,
+        type: 'location',
+        location: { query: '', lat: '12.8230', lng: '80.0454' },
+      });
+      expect(geo).toBe('geo:12.8230,80.0454');
+    });
+
+    it('generates iCalendar VEVENT for events', () => {
+      const eventPayload = buildQRPayload({ ...baseData, type: 'event' });
+      expect(eventPayload).toContain('BEGIN:VCALENDAR');
+      expect(eventPayload).toContain('BEGIN:VEVENT');
+      expect(eventPayload).toContain('SUMMARY:GDG SRM Summit 2026');
+      expect(eventPayload).toContain('END:VEVENT');
+    });
   });
 
   describe('validateQRData', () => {
@@ -140,12 +189,22 @@ describe('QR Payload Utilities', () => {
       expect(shortPass.isValid).toBe(false);
       expect(shortPass.errors.password).toBeDefined();
     });
+
+    it('validates UPI ID format', () => {
+      const valid = validateQRData({ ...baseData, type: 'upi', upi: { ...baseData.upi, pa: 'gdg@okhdfc' } });
+      expect(valid.isValid).toBe(true);
+
+      const invalid = validateQRData({ ...baseData, type: 'upi', upi: { ...baseData.upi, pa: 'noatsign' } });
+      expect(invalid.isValid).toBe(false);
+      expect(invalid.errors.pa).toBeDefined();
+    });
   });
 
   describe('getQRSummary', () => {
     it('generates informative titles', () => {
       expect(getQRSummary({ ...baseData, type: 'url', url: 'https://gdgsrm.com' })).toBe('URL: https://gdgsrm.com');
       expect(getQRSummary({ ...baseData, type: 'wifi', wifi: { ...baseData.wifi, ssid: 'SRM_WIFI' } })).toBe('Wi-Fi: SRM_WIFI');
+      expect(getQRSummary({ ...baseData, type: 'upi', upi: { ...baseData.upi, pa: 'gdg@upi' } })).toBe('UPI Pay: gdg@upi');
     });
   });
 });

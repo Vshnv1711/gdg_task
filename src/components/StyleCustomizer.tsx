@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
-import type { QRConfig, DotType, CornerSquareType, CornerDotType, ErrorCorrectionLevel } from '../types';
-import { Palette, Shapes, Sliders, Image as ImageIcon, ShieldAlert, Sparkles, Upload, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import type { QRConfig, DotType, CornerSquareType, CornerDotType, ErrorCorrectionLevel, FrameStyle } from '../types';
+import { Palette, Shapes, Sliders, Image as ImageIcon, ShieldAlert, Sparkles, Upload, X, Pipette, Tag } from 'lucide-react';
+import { playTactileClick } from '../utils/sound';
 
 interface StyleCustomizerProps {
   config: QRConfig;
@@ -27,10 +28,19 @@ const CORNER_DOT_OPTIONS: { id: CornerDotType; label: string }[] = [
   { id: 'dot', label: 'Circular Dot' },
 ];
 
+const FRAME_OPTIONS: { id: FrameStyle; label: string; desc: string }[] = [
+  { id: 'none', label: 'No Frame', desc: 'Standard edge-to-edge QR matrix' },
+  { id: 'banner-top', label: 'Top Header Banner', desc: 'Sleek call-to-action bar above the code' },
+  { id: 'banner-bottom', label: 'Bottom Ribbon', desc: 'High-visibility marketing banner underneath' },
+  { id: 'badge-pill', label: 'Floating Badge Pill', desc: 'Modern floating pill with CTA' },
+  { id: 'polaroid', label: 'Polaroid Style', desc: 'Classic thick bottom card with handwritten look' },
+  { id: 'minimal-tag', label: 'Minimalist Dot Tag', desc: 'Subtle clean tag line' },
+];
+
 const QUICK_COLORS = ['#000000', '#1e293b', '#2563eb', '#7c3aed', '#db2777', '#059669', '#d97706', '#dc2626'];
 const QUICK_BG_COLORS = ['#ffffff', '#f8fafc', '#f1f5f9', '#fefce8', '#f0fdf4', '#eff6ff', '#090d16', '#18181b'];
 
-// Popular preset SVG logos data URLs or inline icons for zero-dependency portability
+// Popular preset SVG logos
 const PRESET_LOGOS = [
   {
     name: 'Google',
@@ -48,10 +58,22 @@ const PRESET_LOGOS = [
     name: 'Globe',
     url: 'https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/globe.svg',
   },
+  {
+    name: 'Instagram',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png',
+  },
+  {
+    name: 'LinkedIn',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/c/ca/LinkedIn_logo_initials.png',
+  },
+  {
+    name: 'WhatsApp',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+  },
 ];
 
 export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChange }) => {
-  const [activeTab, setActiveTab] = React.useState<'colors' | 'shapes' | 'layout' | 'logo' | 'security'>('colors');
+  const [activeTab, setActiveTab] = useState<'colors' | 'shapes' | 'frame' | 'layout' | 'logo' | 'security'>('colors');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const updateConfig = (partial: Partial<QRConfig>) => {
@@ -68,7 +90,6 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          // Auto-boost error correction to 'Q' or 'H' if it's currently low
           const newLevel = config.errorCorrectionLevel === 'L' || config.errorCorrectionLevel === 'M' ? 'Q' : config.errorCorrectionLevel;
           updateConfig({ logoUrl: reader.result, errorCorrectionLevel: newLevel });
         }
@@ -78,117 +99,102 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
   };
 
   const handleSelectPresetLogo = (url: string) => {
+    playTactileClick();
     const newLevel = config.errorCorrectionLevel === 'L' || config.errorCorrectionLevel === 'M' ? 'Q' : config.errorCorrectionLevel;
     updateConfig({ logoUrl: url, errorCorrectionLevel: newLevel });
   };
 
   const removeLogo = () => {
+    playTactileClick();
     updateConfig({ logoUrl: undefined });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const pickScreenColor = async (onColor: (color: string) => void) => {
+    if (typeof window !== 'undefined' && (window as any).EyeDropper) {
+      try {
+        const eyeDropper = new (window as any).EyeDropper();
+        const res = await eyeDropper.open();
+        if (res.sRGBHex) {
+          playTactileClick();
+          onColor(res.sRGBHex);
+        }
+      } catch {
+        // user cancelled
+      }
+    }
+  };
+
+  const hasEyeDropper = typeof window !== 'undefined' && !!(window as any).EyeDropper;
+
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden transition-colors">
+    <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-3xl shadow-sm overflow-hidden transition-colors">
       {/* Tab navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto scrollbar-none bg-slate-50/60 dark:bg-slate-950/40">
-        <button
-          type="button"
-          onClick={() => setActiveTab('colors')}
-          className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-            activeTab === 'colors'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Palette className="w-3.5 h-3.5" />
-          <span>Colors & Gradient</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('shapes')}
-          className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-            activeTab === 'shapes'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Shapes className="w-3.5 h-3.5" />
-          <span>Patterns & Shapes</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('layout')}
-          className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-            activeTab === 'layout'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          <span>Size & Padding</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('logo')}
-          className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-            activeTab === 'logo'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <ImageIcon className="w-3.5 h-3.5" />
-          <span>Logo & Center</span>
-          {config.logoUrl && <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
-            activeTab === 'security'
-              ? 'border-blue-600 text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900'
-              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-        >
-          <ShieldAlert className="w-3.5 h-3.5" />
-          <span>Error Correction</span>
-        </button>
+      <div className="flex border-b border-slate-200/80 dark:border-slate-800/80 overflow-x-auto scrollbar-none bg-slate-50/60 dark:bg-slate-950/40 p-1 gap-1">
+        {[
+          { id: 'colors', label: 'Colors & Gradient', icon: Palette },
+          { id: 'shapes', label: 'Patterns & Eyes', icon: Shapes },
+          { id: 'frame', label: 'Frames & CTA', icon: Tag },
+          { id: 'layout', label: 'Size & Margin', icon: Sliders },
+          { id: 'logo', label: 'Center Logo', icon: ImageIcon, badge: !!config.logoUrl },
+          { id: 'security', label: 'Error Resilience', icon: ShieldAlert },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                playTactileClick();
+                setActiveTab(tab.id as any);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                isActive
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+              {tab.badge && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="p-5">
+      <div className="p-5 sm:p-6">
         {/* COLORS & GRADIENT TAB */}
         {activeTab === 'colors' && (
           <div className="space-y-5">
             {/* Gradient toggle */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
               <div>
-                <label className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  Enable Gradient Foreground
+                  Enable Dual-Tone Gradient Matrix
                 </label>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 m-0">
-                  Blend two colors seamlessly across the QR matrix
+                  Blend colors seamlessly across the QR dots and corner eyes
                 </p>
               </div>
               <input
                 type="checkbox"
                 id="gradient-toggle"
                 checked={config.gradient.enabled}
-                onChange={(e) =>
+                onChange={(e) => {
+                  playTactileClick();
                   updateConfig({
                     gradient: { ...config.gradient, enabled: e.target.checked },
-                  })
-                }
+                  });
+                }}
                 className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 dark:border-slate-700 cursor-pointer"
               />
             </div>
 
             {/* Gradient Controls or Solid Color */}
             {config.gradient.enabled ? (
-              <div className="space-y-4 p-4 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/30 dark:bg-blue-950/20">
+              <div className="space-y-4 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/30 dark:bg-blue-950/20">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Color 1 */}
                   <div>
@@ -204,7 +210,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                             gradient: { ...config.gradient, color1: e.target.value },
                           })
                         }
-                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
+                        className="w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
                       />
                       <input
                         type="text"
@@ -214,8 +220,18 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                             gradient: { ...config.gradient, color1: e.target.value },
                           })
                         }
-                        className="w-24 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
+                        className="w-24 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
                       />
+                      {hasEyeDropper && (
+                        <button
+                          type="button"
+                          onClick={() => pickScreenColor((c) => updateConfig({ gradient: { ...config.gradient, color1: c } }))}
+                          title="Pick color from any screen pixel"
+                          className="p-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-500 hover:text-blue-600"
+                        >
+                          <Pipette className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -233,7 +249,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                             gradient: { ...config.gradient, color2: e.target.value },
                           })
                         }
-                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
+                        className="w-10 h-10 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
                       />
                       <input
                         type="text"
@@ -243,18 +259,29 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                             gradient: { ...config.gradient, color2: e.target.value },
                           })
                         }
-                        className="w-24 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
+                        className="w-24 px-2.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
                       />
+                      {hasEyeDropper && (
+                        <button
+                          type="button"
+                          onClick={() => pickScreenColor((c) => updateConfig({ gradient: { ...config.gradient, color2: c } }))}
+                          title="Pick color from screen"
+                          className="p-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 text-slate-500 hover:text-blue-600"
+                        >
+                          <Pipette className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Gradient angle */}
                 <div>
-                  <div className="flex justify-between items-center text-xs mb-1">
+                  <div className="flex justify-between items-center text-xs mb-1.5">
                     <span className="font-semibold text-slate-700 dark:text-slate-300">
                       Gradient Angle: {config.gradient.rotation}°
                     </span>
+                    <span className="text-[10px] text-slate-400 font-mono">0° - 360°</span>
                   </div>
                   <input
                     type="range"
@@ -276,7 +303,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Foreground Color
                 </label>
-                <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex items-center gap-2.5 mb-2.5">
                   <input
                     type="color"
                     value={config.fgColor}
@@ -289,6 +316,16 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                     onChange={(e) => updateConfig({ fgColor: e.target.value })}
                     className="w-28 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-slate-50 dark:bg-slate-800"
                   />
+                  {hasEyeDropper && (
+                    <button
+                      type="button"
+                      onClick={() => pickScreenColor((c) => updateConfig({ fgColor: c }))}
+                      title="Pick color from screen"
+                      className="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    >
+                      <Pipette className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 {/* Quick swatches */}
                 <div className="flex flex-wrap gap-1.5">
@@ -296,9 +333,12 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                     <button
                       key={c}
                       type="button"
-                      onClick={() => updateConfig({ fgColor: c })}
+                      onClick={() => {
+                        playTactileClick();
+                        updateConfig({ fgColor: c });
+                      }}
                       style={{ backgroundColor: c }}
-                      className={`w-6 h-6 rounded-md border transition-transform hover:scale-110 cursor-pointer ${
+                      className={`w-7 h-7 rounded-lg border transition-transform hover:scale-110 cursor-pointer ${
                         config.fgColor.toLowerCase() === c.toLowerCase()
                           ? 'ring-2 ring-blue-500 ring-offset-2 border-transparent'
                           : 'border-slate-300 dark:border-slate-600'
@@ -315,7 +355,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Background Canvas Color
               </label>
-              <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex items-center gap-2.5 mb-2.5">
                 <input
                   type="color"
                   value={config.bgColor}
@@ -328,6 +368,16 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                   onChange={(e) => updateConfig({ bgColor: e.target.value })}
                   className="w-28 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-slate-50 dark:bg-slate-800"
                 />
+                {hasEyeDropper && (
+                  <button
+                    type="button"
+                    onClick={() => pickScreenColor((c) => updateConfig({ bgColor: c }))}
+                    title="Pick color from screen"
+                    className="p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  >
+                    <Pipette className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               {/* Quick BG swatches */}
               <div className="flex flex-wrap gap-1.5">
@@ -335,9 +385,12 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                   <button
                     key={c}
                     type="button"
-                    onClick={() => updateConfig({ bgColor: c })}
+                    onClick={() => {
+                      playTactileClick();
+                      updateConfig({ bgColor: c });
+                    }}
                     style={{ backgroundColor: c }}
-                    className={`w-6 h-6 rounded-md border transition-transform hover:scale-110 cursor-pointer ${
+                    className={`w-7 h-7 rounded-lg border transition-transform hover:scale-110 cursor-pointer ${
                       config.bgColor.toLowerCase() === c.toLowerCase()
                         ? 'ring-2 ring-blue-500 ring-offset-2 border-transparent'
                         : 'border-slate-300 dark:border-slate-600'
@@ -363,11 +416,14 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => updateConfig({ dotType: opt.id })}
+                    onClick={() => {
+                      playTactileClick();
+                      updateConfig({ dotType: opt.id });
+                    }}
                     className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
                       config.dotType === opt.id
                         ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/30'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                   >
                     <span className="text-base text-blue-600 dark:text-blue-400">{opt.preview}</span>
@@ -387,11 +443,14 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => updateConfig({ cornerSquareType: opt.id })}
+                    onClick={() => {
+                      playTactileClick();
+                      updateConfig({ cornerSquareType: opt.id });
+                    }}
                     className={`px-3 py-2 rounded-xl border text-xs font-medium text-center transition-all cursor-pointer ${
                       config.cornerSquareType === opt.id
                         ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/30'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                   >
                     {opt.label}
@@ -410,11 +469,14 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => updateConfig({ cornerDotType: opt.id })}
+                    onClick={() => {
+                      playTactileClick();
+                      updateConfig({ cornerDotType: opt.id });
+                    }}
                     className={`px-3 py-2 rounded-xl border text-xs font-medium text-center transition-all cursor-pointer ${
                       config.cornerDotType === opt.id
                         ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/30'
-                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                     }`}
                   >
                     {opt.label}
@@ -441,7 +503,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                     <button
                       type="button"
                       onClick={() => updateConfig({ cornerSquareColor: '' })}
-                      className="text-[11px] text-blue-600 hover:underline"
+                      className="text-[11px] text-blue-600 hover:underline cursor-pointer"
                     >
                       Match FG
                     </button>
@@ -460,7 +522,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                     <button
                       type="button"
                       onClick={() => updateConfig({ cornerDotColor: '' })}
-                      className="text-[11px] text-blue-600 hover:underline"
+                      className="text-[11px] text-blue-600 hover:underline cursor-pointer"
                     >
                       Match FG
                     </button>
@@ -471,10 +533,99 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
           </div>
         )}
 
+        {/* FRAMES & CTA TAB */}
+        {activeTab === 'frame' && (
+          <div className="space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                Marketing Frame Style
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {FRAME_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => {
+                      playTactileClick();
+                      updateConfig({ frame: { ...config.frame, style: opt.id } });
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                      config.frame.style === opt.id
+                        ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 ring-2 ring-blue-500/20'
+                        : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-xs mb-0.5">{opt.label}</div>
+                    <div className="text-[10px] text-slate-500 line-clamp-1">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {config.frame.style !== 'none' && (
+              <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Frame Call-To-Action (CTA) Text
+                  </label>
+                  <input
+                    type="text"
+                    value={config.frame.text}
+                    onChange={(e) => updateConfig({ frame: { ...config.frame, text: e.target.value } })}
+                    placeholder="SCAN ME"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-800 font-bold uppercase tracking-wider text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Frame Banner Color
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={config.frame.color}
+                        onChange={(e) => updateConfig({ frame: { ...config.frame, color: e.target.value } })}
+                        className="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
+                      />
+                      <input
+                        type="text"
+                        value={config.frame.color}
+                        onChange={(e) => updateConfig({ frame: { ...config.frame, color: e.target.value } })}
+                        className="w-24 px-2 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Frame Text Color
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={config.frame.textColor}
+                        onChange={(e) => updateConfig({ frame: { ...config.frame, textColor: e.target.value } })}
+                        className="w-9 h-9 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer p-0.5 bg-white dark:bg-slate-800"
+                      />
+                      <input
+                        type="text"
+                        value={config.frame.textColor}
+                        onChange={(e) => updateConfig({ frame: { ...config.frame, textColor: e.target.value } })}
+                        className="w-24 px-2 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-mono uppercase bg-white dark:bg-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* LAYOUT & SIZE TAB */}
         {activeTab === 'layout' && (
           <div className="space-y-5">
-            {/* QR Size */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1.5">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -491,12 +642,8 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                 onChange={(e) => updateConfig({ size: Number(e.target.value) })}
                 className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Determines live viewport dimensions. High-res exports (1000px, 2000px) are selectable during download.
-              </p>
             </div>
 
-            {/* Padding/Margin */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1.5">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -513,9 +660,6 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                 onChange={(e) => updateConfig({ margin: Number(e.target.value) })}
                 className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
               />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Recommended minimum: 10px to ensure mobile cameras cleanly isolate the QR code boundary.
-              </p>
             </div>
           </div>
         )}
@@ -571,7 +715,7 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                     key={item.name}
                     type="button"
                     onClick={() => handleSelectPresetLogo(item.url)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-300 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 cursor-pointer shadow-2xs"
                   >
                     <img src={item.url} alt={item.name} className="w-4 h-4 object-contain" />
                     <span>{item.name}</span>
@@ -644,13 +788,16 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                 { level: 'L', label: 'Low (~7%)', desc: 'Minimal data redundancy, cleanest visual code' },
                 { level: 'M', label: 'Medium (~15%)', desc: 'Standard balance for general use' },
                 { level: 'Q', label: 'Quartile (~25%)', desc: 'Recommended when adding logos or decals' },
-                { level: 'H', label: 'High (~30%)', desc: 'Maximum durability against tears, dirt, or heavy logos' },
+                { level: 'H', label: 'High (~30%)', desc: 'Maximum durability against tears or heavy logos' },
               ].map((item) => (
                 <button
                   key={item.level}
                   type="button"
-                  onClick={() => updateConfig({ errorCorrectionLevel: item.level as ErrorCorrectionLevel })}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                  onClick={() => {
+                    playTactileClick();
+                    updateConfig({ errorCorrectionLevel: item.level as ErrorCorrectionLevel });
+                  }}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                     config.errorCorrectionLevel === item.level
                       ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 ring-2 ring-blue-500/20'
                       : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
@@ -665,11 +812,6 @@ export const StyleCustomizer: React.FC<StyleCustomizerProps> = ({ config, onChan
                 </button>
               ))}
             </div>
-            {config.logoUrl && (config.errorCorrectionLevel === 'L' || config.errorCorrectionLevel === 'M') && (
-              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
-                ⚠️ With a center logo present, level Q or H is recommended so obscured data modules can still be reconstructed by scanners.
-              </div>
-            )}
           </div>
         )}
       </div>
